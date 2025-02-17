@@ -1,0 +1,133 @@
+name: Docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      nim_version:
+        description: Nim version (2.0.14)
+        required: true
+        type: string
+
+env:
+  DOCKER_FILE: Dockerfile
+  DOCKERHUB_REPO: codexstorage/nim-lang
+  NIM_VERSION: ${{ inputs.nim_version }}
+  amd64_builder: ubuntu-22.04
+  arm64_builder: ubuntu-22.04-arm
+
+jobs:
+  compute:
+    name: Compute matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Compute matrix
+        id: matrix
+        uses: fabiocaccamo/create-matrix-action@v5
+        with:
+          matrix: |
+            os {linux}, arch {amd64}, builder {${{ env.amd64_builder }}}
+            os {linux}, arch {arm64}, builder {${{ env.arm64_builder }}}
+
+  # Build platform specific image
+  build:
+    needs: compute
+    strategy:
+      fail-fast: true
+      matrix:
+        include: ${{ fromJson(needs.compute.outputs.matrix) }}
+
+    name: Build ${{ matrix.os }}/${{ matrix.arch }}
+    runs-on: ${{ matrix.builder }}
+    env:
+      PLATFORM: ${{ format('{0}/{1}', 'linux', matrix.arch) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker - Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_REPO }}
+
+      - name: Docker - Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker - Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker - Build and Push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKER_FILE }}
+          platforms: ${{ env.PLATFORM }}
+          push: true
+          build-args: |
+            NIM_VERSION=${{ env.NIM_VERSION }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Docker - Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Docker - Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Publish multi-platform image
+  publish:
+    name: Publish multi-platform image
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Docker - Variables
+        run: |
+          # Set tags
+          echo "TAGS=${{ env.DOCKER_REPO }}:${{ env.NIM_VERSION }}" >> $GITHUB_ENV
+
+      - name: Docker - Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Docker - Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker - Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_REPO }}
+          tags: ${{ env.TAGS }}
+
+      - name: Docker - Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker - Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.DOCKERHUB_REPO }}@sha256:%s ' *)
+
+      - name: Docker - Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.DOCKERHUB_REPO }}:${{ steps.meta.outputs.version }}
