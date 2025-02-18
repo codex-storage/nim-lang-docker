@@ -94,10 +94,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Docker - Variables
-        run: |
-          # Set tags
-          echo "TAGS=${{ env.DOCKER_REPO }}:${{ env.NIM_VERSION }}" >> $GITHUB_ENV
 
       - name: Docker - Download digests
         uses: actions/download-artifact@v4
@@ -114,7 +110,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.DOCKERHUB_REPO }}
-          tags: ${{ env.TAGS }}
+          tags: ${{ env.NIM_VERSION }}
 
       - name: Docker - Login to Docker Hub
         uses: docker/login-action@v3

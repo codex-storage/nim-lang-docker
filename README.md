@@ -13,7 +13,20 @@
 
  Code in the repository provides a simple way to build multi-arch Docker images with a required Nim version. However, builds are triggered manually.
 
- We are using GitHub Actions and rely on [nimv](https://github.com/emizzle/nimv) for Nim installation.
+ For builds we are using GitHub Actions and rely on [nimv](https://github.com/emizzle/nimv) for Nim installation.
+
+**Considerations**
+ - We are using only `amd64` and `arm64` architecture
+ - We are using [ubuntu](https://hub.docker.com/_/ubuntu) for our apps container and use it for nim-lang as well
+ - Multi-platform builds using [QEMU](https://github.com/docker/setup-qemu-action) are very slow `1h56m` vs `12m`
+
+
+## Docker images
+
+ Images are pushed and available on [DockerHub](https://hub.docker.com/r/codexstorage/nim-lang/tags)
+ ```shell
+ docker run --rm codexstorage/nim-lang:2.0.14 nim --version
+ ```
 
 
 ## Build your own images
