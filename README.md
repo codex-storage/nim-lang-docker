@@ -55,7 +55,7 @@
 
  3. Clone repository
     ```shell
-    git clone
+    git clone https://github.com/codex-storage/nim-lang-docker
     ```
 
  4. Define variables
@@ -122,7 +122,7 @@ TOTAL: ~ `11m09s`
 
  3. Clone repository
     ```shell
-    git clone
+    git clone https://github.com/codex-storage/nim-lang-docker
     ```
 
  4. Define variables
@@ -132,12 +132,12 @@ TOTAL: ~ `11m09s`
     ```
 
  5. Create a custom builder
-   ```shell
-   docker buildx create \
-   --name container-builder \
-   --driver docker-container \
-   --bootstrap --use
-   ```
+    ```shell
+    docker buildx create \
+      --name container-builder \
+      --driver docker-container \
+      --bootstrap --use
+    ```
 
  6. Login to DockerHub
     ```shell
@@ -155,12 +155,12 @@ TOTAL: ~ `11m09s`
     ```
 
 Duration
-| Platform | Build        | Push        | Size    |
-| -------- | ------------ | ----------- | ------- |
-| `amd64`  | `-`          | `-`         | `613MB` |
-| `arm64`  | `13m55.177s` | `0m42.444s` | `425MB` |
+| Platform | Build       | Push      | Size    |
+| -------- | ----------- | --------- | ------- |
+| `amd64`  | `-`         | `-`       | `613MB` |
+| `arm64`  | `78m27.578` | `0m49.9s` | `425MB` |
 
-TOTAL: ~ `14m35s`
+TOTAL: ~ `79m17.478s`
 
 </details>
 
